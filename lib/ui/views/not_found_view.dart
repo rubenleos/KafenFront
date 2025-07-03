@@ -49,7 +49,7 @@ class NotFoundView extends StatelessWidget {
                   icon: const Icon(Icons.home),
                   label: const Text('Ir al Inicio'),
                   onPressed: () {
-                    Get.offAllNamed('/counter');
+                    Get.offAllNamed('/home');
                   },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),

@@ -86,26 +86,28 @@ class CustomAppMenu extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          Text( /* Tu texto KAFEN */ 'KAFEN', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: currentTextColor, letterSpacing: 1.5, shadows: !isScrolled ? [ Shadow(offset: const Offset(1.0, 1.0), blurRadius: 2.0, color: Colors.black.withOpacity(0.5), ), ] : null, ), ),
+
           // --- Left Navigation Items ---
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildNavItem('Contador', () => Get.toNamed('/counter'), textColor: currentTextColor),
+        
               const SizedBox(width: 15),
-              _buildNavItem('Provider', () => Get.toNamed('/provider'), textColor: currentTextColor),
+              _buildNavItem('PAQUTES', () => Get.toNamed('/paquetes'), textColor: currentTextColor),
+              _buildNavItem('SOBRE NOSOTROS', () => Get.toNamed('/nosotros'), textColor: currentTextColor),
+              _buildNavItem('CONTACTANOS', () => Get.toNamed('/contacto'), textColor: currentTextColor),
             ],
           ),
 
           // --- Center Logo/Title ---
-          Text( /* Tu texto KAFEN */ 'KAFEN', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: currentTextColor, letterSpacing: 1.5, shadows: !isScrolled ? [ Shadow(offset: const Offset(1.0, 1.0), blurRadius: 2.0, color: Colors.black.withOpacity(0.5), ), ] : null, ), ),
-
+          
           // --- Right Navigation Items (Incluye el nuevo icono) ---
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildNavItem('Home', () => Get.toNamed('/home'), textColor: currentTextColor),
-              const SizedBox(width: 15),
-              _buildNavItem('Inexistente', () => Get.toNamed('/abc'), textColor: currentTextColor),
+            
               const SizedBox(width: 15), // Espacio antes del icono de usuario
 
               // --- NUEVO: Icono de Usuario ---

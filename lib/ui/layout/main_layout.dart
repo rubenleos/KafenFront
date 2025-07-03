@@ -105,10 +105,6 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
-  // --- Métodos para mostrar/ocultar el Overlay de Login ---
-
-  // Función que se pasa al CustomAppMenu y se llama al pulsar el icono
-  // NO recibe BuildContext como parámetro
   void _toggleLoginOverlay() {
     if (!mounted) return;
     // Usa setState para asegurar que la UI se actualice si es necesario
@@ -130,7 +126,6 @@ class _MainLayoutState extends State<MainLayout> {
     // Obtener el Overlay usando el Navigator raíz (más robusto)
     // Usa el 'context' disponible en la clase State (_MainLayoutState)
     final overlay = Navigator.of(context, rootNavigator: true).overlay;
-
     // Comprobar si se pudo obtener el Overlay
     if (overlay == null) {
       print("Error Crítico: No se pudo obtener OverlayState desde el root Navigator.");
@@ -222,7 +217,6 @@ class _MainLayoutState extends State<MainLayout> {
               ),
             ),
           ),
-
           // --- Contenido Principal Scrollable ---
           SliverToBoxAdapter(
             // GestureDetector para cerrar el overlay al tocar el contenido principal

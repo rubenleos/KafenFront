@@ -41,6 +41,8 @@ dependencies:
   http: ^1.2.1
   table_calendar: ^3.0.9 # O la versión más reciente de table_calendar
   intl: ^0.18.1
+  google_fonts: ^6.2.1
+  flutter_credit_card: ^4.1.0
 
 
 

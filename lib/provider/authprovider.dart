@@ -1,11 +1,10 @@
 // lib/provider/authprovider.dart
 import 'dart:convert'; // Para json.decode y json.encode
 import 'package:get/get.dart';
-import 'package:flutter/material.dart';
+
 import 'package:get_storage/get_storage.dart';
 import 'package:http/http.dart' as http;
 
-import 'package:kafen/models/response_api.dart';
 import '../models/user.dart'; // Ajusta esta ruta si es necesario
 import 'package:kafen/enviroment/enviroment.dart';
 
@@ -124,5 +123,7 @@ class AuthProvider extends GetConnect {
     print("AuthProvider: Usuario deslogueado.");
     Get.offAllNamed('/home');
   }
+
+  
 }
 

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 
 class CallToActionBanner extends StatelessWidget {
   const CallToActionBanner({Key? key}) : super(key: key);
@@ -24,7 +26,7 @@ class CallToActionBanner extends StatelessWidget {
           Image.asset(
             '/images/banner_background.jpg', // <-- ¡CAMBIA LA RUTA!
             fit: BoxFit.cover, // Cubre el contenedor
-            semanticLabel: 'Practicando movimiento consciente en el estudio',
+            semanticLabel: 'Practicando movimiento consciente  en el estudio',
             errorBuilder: (context, error, stackTrace) => Container(
               color: Colors.grey[800],
               child: const Center(
@@ -86,6 +88,7 @@ class CallToActionBanner extends StatelessWidget {
                   // Botón
                   ElevatedButton(
                     onPressed: () {
+                       Get.toNamed('/citas');
                       print('Botón de reservar presionado!');
                       // Acción del botón
                     },
