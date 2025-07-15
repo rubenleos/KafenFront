@@ -10,6 +10,7 @@ import 'package:kafen/ui/layout/main_layout.dart';
 import 'package:kafen/ui/pages/not_found.dart';
 import 'package:kafen/ui/views/ClientPaymentView.dart';
 import 'package:kafen/ui/views/citas.dart';
+import 'package:kafen/ui/views/client_checkout_view.dart';
 import 'package:kafen/ui/views/contacto_view.dart';
 import 'package:kafen/ui/views/counter_provider_view.dart';
 import 'package:kafen/ui/views/create_user_view.dart';
@@ -23,7 +24,6 @@ void main() async {
   await initializeDateFormatting('es_MX', null);
   Get.put(AuthProvider());
   Get.put(RegistrationController());
-
   runApp(const MyApp());
 }
 
@@ -83,6 +83,12 @@ class MyApp extends StatelessWidget {
         GetPage(
           name: '/contacto',
           page: () => MainLayout(child:ContactoView() ),
+          transition: Transition.fadeIn,
+          transitionDuration: const Duration(milliseconds: 350),
+        ),
+        GetPage(
+          name: '/checkout',
+          page: () => MainLayout(child: const ClientCheckoutView()),
           transition: Transition.fadeIn,
           transitionDuration: const Duration(milliseconds: 350),
         ),

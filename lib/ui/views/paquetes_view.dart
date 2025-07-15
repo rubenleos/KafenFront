@@ -162,12 +162,10 @@ class _PackageCardState extends State<_PackageCard> {
                     ),
                   ),
                   ElevatedButton(
-                    onPressed: () {
-                      Get.snackbar(
-                        'Contratación',
-                        'Próximamente podrás contratar el paquete ${package.nombrePaquete}.',
-                        snackPosition: SnackPosition.BOTTOM,
-                      );
+                  onPressed: () {
+                      // Navega a la vista de checkout y pasa el objeto 'package'
+                      // como argumento para que el controlador lo pueda recibir.
+                      Get.toNamed('/checkout', arguments: package);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isSale ? Colors.black : Colors.white,

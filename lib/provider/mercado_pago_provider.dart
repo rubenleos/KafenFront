@@ -1,90 +1,82 @@
 // mercado_pago_provider.dart
+
 import 'dart:convert';
-// Asegúrate de que esta ruta sea correcta
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:kafen/enviroment/enviroment.dart'; // Asumo que esta es la ruta a tu archivo de entorno
+import 'package:get_storage/get_storage.dart';
+import 'package:kafen/enviroment/enviroment.dart';
 import 'package:kafen/models/mercado_pago/mercado_pago_card_token.dart';
-import 'package:kafen/models/mercado_pago_document_type.dart';
+import 'package:kafen/models/user.dart';
+
+import '../models/mercado_pago/order.dart';
+// Asumo que tienes un modelo Order, si no, puedes pasar los datos directamente.
+
 
 class MercadoPagoProvider extends GetConnect {
-  // URL base de la API de Mercado Pago
   final String _mercadoPagoApiUrl = 'https://api.mercadopago.com/v1';
+  User userSession =User.fromJson(GetStorage().read('key') ?? {});
+  // URL de tu propio backend. Asegúrate de que apunte a tu servidor.
+  final String _myBackendApiUrl = Enviroment.API_URL;
 
-  // Claves de tu aplicación de Mercado Pago (desde tu archivo de entorno)
-  // ACCESS_TOKEN es para operaciones de backend (pagos, etc.). Es SECRETO.
   final String _accessToken = Enviroment.ACCESS_TOKEN;
-  // PUBLIC_KEY es para operaciones de frontend (como crear tokens de tarjeta). Es PÚBLICA.
   final String _publicKey = Enviroment.PUBLIC_KEY;
 
-  /// Obtiene los tipos de documento de identificación de Mercado Pago.
- 
+  // ... (tu función createCardToken se queda igual) ...
 
-  /// Crea un token de tarjeta de un solo uso en Mercado Pago.
-  /// Este token se usa para enviar los datos de la tarjeta de forma segura a tu backend.
-  /// NOTA: La tokenización de tarjetas requiere la PUBLIC_KEY, no el ACCESS_TOKEN.
-  Future<MercadoPagoCardToken?> createCardToken({
-    required String cardNumber,
-    required String expirationYear,
-    required int expirationMonth,
-    required String cardHolderName,
-    required String cvv,
-    
-   
+  /// Envía los datos del pago a tu backend para ser procesados.
+  Future<Response> createPayment({
+    required String token,
+    required String paymentMethodId,
+    required String paymentTypeId,
+    required String emailCustomer,
+    required String issuerId,
+    required String identificationType,
+    required String identificationNumber,
+    // CORREGIDO: El monto de la transacción debe ser un número.
+    required double transactionAmount, 
+    // CORREGIDO: Las cuotas deben ser un número entero.
+    required int installments, 
+    required Order order,
   }) async {
-    // El endpoint para crear tokens de tarjeta es /card_tokens y usa la PUBLIC_KEY como query param.
-    final String url = '$_mercadoPagoApiUrl/card_tokens?public_key=$_publicKey';
+    
+    // Este es el endpoint que crearás en tu backend (ver la sección de Python más abajo).
+    final String url = '$_myBackendApiUrl/pagos/create';
 
-    // El cuerpo de la petición debe coincidir con la documentación de Mercado Pago.
-    final Map<String, dynamic> cardTokenBody = {
-      'card_number': cardNumber.replaceAll(' ', ''), // Enviamos sin espacios
-      'expiration_year': expirationYear,
-      'expiration_month': expirationMonth,
-      'security_code': cvv,
-      'cardholder': {
-        'name': cardHolderName
-        
-      }
+    final Map<String, dynamic> paymentBody = {
+      'token': token,
+      'payment_method_id': paymentMethodId,
+      'payment_type_id': paymentTypeId,
+      'issuer_id': issuerId,
+      'installments': installments,
+      'transaction_amount': transactionAmount,
+      'payer': {
+        'email': emailCustomer,
+        'identification': {
+          'type': identificationType,
+          'number': identificationNumber,
+        }
+      },
+      // Puedes enviar información adicional de la orden si tu backend la necesita.
+      'order_details': order.toJson() 
     };
 
     try {
+      // Realizamos la petición POST a nuestro propio servidor.
+      // Si tu backend requiere autenticación (ej. un JWT), debes añadirlo aquí en los headers.
       Response response = await post(
         url,
-        json.encode(cardTokenBody), // El cuerpo debe ser un string JSON
+        json.encode(paymentBody),
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          // 'Authorization': 'Bearer TU_JWT_TOKEN' // Descomentar si usas autenticación
         },
-       
       );
+      return response;
 
-      print('RESPONSE: ${response}');
-      print('Response status ${response.statusCode}');
-      print('Respose body : ${response.body}');
-
-      // Una respuesta exitosa para la creación de token es 201 (Created)
-      if (response.statusCode == 201) {
-     
-        // Parseamos la respuesta JSON a nuestro modelo MercadoPagoCardToken
-        final MercadoPagoCardToken cardToken = MercadoPagoCardToken.fromJson(response.body);
-        return cardToken;
-        
-      }
-      
-       else {
-        // Si la API de Mercado Pago devuelve un error (ej. 400 por datos inválidos)
-        Get.snackbar( 'Error', 'No se pudo validar la tarjera');
-        print('Error al crear token de tarjeta: ${response.statusCode}');
-        print('Cuerpo del error: ${response.bodyString}');
-        Get.snackbar(
-          'Error en los datos de la tarjeta',
-          'No se pudo crear el token. Revisa los datos de la tarjeta e inténtalo de nuevo.',
-        );
-        return null;
-      }
     } catch (e) {
-      // Error de conexión o cualquier otra excepción
-      print('Excepción al crear token de tarjeta: $e');
-      Get.snackbar('Error de conexión', 'No se pudo comunicar con el servidor. Revisa tu conexión a internet.');
-      return null;
+      Get.snackbar('Error de Conexión', 'No se pudo conectar con el servidor: $e');
+      // Devolvemos una respuesta de error para que el controller pueda manejarla.
+      return Response(statusCode: 500, statusText: 'Error de conexión con el servidor.');
     }
   }
 }
