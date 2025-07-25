@@ -40,7 +40,7 @@ class MyApp extends StatelessWidget {
         GetPage(
           name: '/citas',
           page: () => MainLayout(child: const CitasView()),
-          binding: CitasBinding(),
+          binding: ClientPaymentBinding(),
           transition: Transition.fadeIn,
           transitionDuration: const Duration(milliseconds: 350),
         ),

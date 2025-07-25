@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_credit_card/flutter_credit_card.dart';
 import 'package:get/get.dart';
 import 'package:kafen/ui/controller/client_payment_controller.dart';
@@ -8,110 +9,136 @@ class ClientPaymentsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ClientPaymentController con = Get.put(ClientPaymentController());
+    // --- CORRECCIÓN DEFINITIVA ---
+    // Usamos Get.find() para localizar el controlador que el Binding ya creó.
+    // Esto evita la creación de duplicados y estabiliza el GlobalKey.
+    final ClientPaymentController con = Get.find<ClientPaymentController>();
 
-    return Container(
-      color: const Color(0xFFFAF8F5), // Fondo cremita
-      alignment: Alignment.topCenter,
-      padding: const EdgeInsets.symmetric(vertical: 50),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 700),
-        padding: const EdgeInsets.all(30),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: const [
-            BoxShadow(
-              color: Color.fromARGB(25, 0, 0, 0),
-              blurRadius: 10,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-          Obx(() => AspectRatio(
-  aspectRatio: 16 / 9, // más rectangular, puedes probar también 14/9 o 12/7
-  child: CreditCardWidget(
-    cardNumber: con.cardNumber.value,
-    expiryDate: con.expiryDate.value,
-    cardHolderName: con.cardHolderName.value,
-    cvvCode: con.cvvCode.value,
-    showBackView: con.isCvvFocused.value,
-    onCreditCardWidgetChange: (CreditCardBrand brand) {},
-    cardBgColor:  Color.fromRGBO(213, 186, 152,35),
-    isChipVisible: true,
-    obscureCardNumber: true,
-    obscureCardCvv: true,
-  ),
-)),
-            const SizedBox(height: 20),
-            CreditCardForm(
-              formKey: con.keyForm,
-              onCreditCardModelChange: con.onCreditCardModelChange,
-              inputConfiguration: InputConfiguration(
-                cardNumberDecoration:  _inputDecoration('Número de la tarjeta', 'XXXX XXXX XXXX XXXX',Icons.credit_card),
-                expiryDateDecoration: _inputDecoration('Fecha de expiración', 'MM/YY',Icons.calendar_month),
-                cvvCodeDecoration: _inputDecoration('CVV', 'XXX',Icons.security_outlined),
-                cardHolderDecoration: _inputDecoration('Nombre del titular', '',Icons.person_4_outlined),
-              ),
-              cardNumber: '',
-              expiryDate: '',
-              cvvCode: '',
-              cardHolderName: '',
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Realizar Pago'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 1,
+      ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 550),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Obx(() => CreditCardWidget(
+                      cardNumber: con.cardNumber.value,
+                      expiryDate: con.expiryDate.value,
+                      cardHolderName: con.cardHolderName.value,
+                      cvvCode: con.cvvCode.value,
+                      showBackView: con.isCvvFocused.value,
+                      onCreditCardWidgetChange: (brand) {},
+                      cardBgColor: const Color(0xFF2C3E50),
+                      isChipVisible: true,
+                      cardType: CardType.otherBrand,
+                      customCardTypeIcons: [
+                        if (con.paymentMethod.value?.secureThumbnail != null)
+                          CustomCardTypeIcon(
+                            cardType: CardType.otherBrand,
+                            cardImage: Image.network(
+                              con.paymentMethod.value!.secureThumbnail!,
+                              height: 40,
+                              width: 55,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.credit_card,
+                                      color: Colors.white),
+                            ),
+                          ),
+                      ],
+                    )),
+                CreditCardForm(
+                  formKey: con.keyForm,
+                  onCreditCardModelChange: con.onCreditCardModelChange,
+                  inputConfiguration: const InputConfiguration(
+                    cardNumberDecoration: InputDecoration(
+                        labelText: 'Número de la tarjeta',
+                        hintText: 'XXXX XXXX XXXX XXXX'),
+                    expiryDateDecoration: InputDecoration(
+                        labelText: 'Fecha de expiración', hintText: 'MM/YY'),
+                    cvvCodeDecoration:
+                        InputDecoration(labelText: 'CVV', hintText: 'XXX'),
+                    cardHolderDecoration:
+                        InputDecoration(labelText: 'Nombre del titular'),
+                  ),
+                  cardNumber: con.cardNumber.value,
+                  expiryDate: con.expiryDate.value,
+                  cvvCode: con.cvvCode.value,
+                  cardHolderName: con.cardHolderName.value,
                 ),
-              ),
-              onPressed: () {
-                if (!con.isValidForm()) return;
-                con.createCardToken();
-
-                Get.snackbar(
-                  'Procesando',
-                  'La lógica de pago se implementará próximamente.',
-                  snackPosition: SnackPosition.BOTTOM,
-                );
-              },
-              child: const Text(
-                'REALIZAR PAGO',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
+                const SizedBox(height: 24),
+                _buildIdentificationFields(con),
+                const SizedBox(height: 32),
+                Obx(() => ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed:
+                          con.isLoading.value ? null : con.processPayment,
+                      child: con.isLoading.value
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Text(
+                              'PAGAR \$${con.package.value?.precio ?? '0.00'}'),
+                    )),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  InputDecoration _inputDecoration(String label, String hint,IconData? icono) {
-    return InputDecoration(
-      filled: true,
-      fillColor: const Color(0xFFF5F5F5),
-      hintText: hint,
-      labelText: label,
-      labelStyle: const TextStyle(color: Colors.black87),
-      suffixIcon: Icon(icono as IconData?),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(color: Colors.grey),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(color: Colors.grey),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: const BorderSide(color: Colors.black, width: 1.2),
-      ),
+  Widget _buildIdentificationFields(ClientPaymentController con) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Datos de Identificación del Titular",
+          style:
+              Get.theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: con.identificationTypeController,
+          decoration: const InputDecoration(
+            labelText: 'Tipo de documento',
+            hintText: 'Ej: CI, DNI, Pasaporte',
+            border: OutlineInputBorder(),
+          ),
+          validator: (value) =>
+              (value == null || value.isEmpty) ? 'Este campo es requerido' : null,
+        ),
+        const SizedBox(height: 16),
+        TextFormField(
+          controller: con.identificationNumberController,
+          decoration: const InputDecoration(
+            labelText: 'Número de documento',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          validator: (value) =>
+              (value == null || value.isEmpty) ? 'Este campo es requerido' : null,
+        ),
+      ],
     );
   }
 }

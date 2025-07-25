@@ -1,4 +1,3 @@
-// lib/ui/views/client_checkout_view.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -26,7 +25,8 @@ class ClientCheckoutView extends StatelessWidget {
           // Si hay un paquete, muestra el resumen de la compra.
           return Card(
             elevation: 4,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
               padding: const EdgeInsets.all(30.0),
               child: Column(
@@ -72,8 +72,10 @@ class ClientCheckoutView extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        // Navega a la vista de pagos con tarjeta
-                        Get.toNamed('/pagos');
+                        // --- CORRECCIÓN APLICADA AQUÍ ---
+                        // Ahora pasamos el paquete como un argumento en la navegación.
+                        // El controlador de la pantalla de pago podrá recibirlo.
+                        Get.toNamed('/pagos', arguments: con.package.value);
                       },
                       child: Text(
                         'PROCEDER AL PAGO',
@@ -93,7 +95,6 @@ class ClientCheckoutView extends StatelessWidget {
     );
   }
 
-  // Widget auxiliar para las filas de detalle
   Widget _buildDetailRow(String title, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -119,7 +120,6 @@ class ClientCheckoutView extends StatelessWidget {
     );
   }
 
-  // Widget auxiliar para la fila del total
   Widget _buildTotalRow(String title, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,

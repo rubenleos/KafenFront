@@ -1,30 +1,137 @@
-// mercado_pago_provider.dart
-
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart';
 import 'package:kafen/enviroment/enviroment.dart';
 import 'package:kafen/models/mercado_pago/mercado_pago_card_token.dart';
-import 'package:kafen/models/user.dart';
-
+import 'package:kafen/models/mercado_pago/mercado_pago_payment_method.dart';
+import 'package:kafen/models/mercado_pago/mercado_pago_payment_method_installments.dart';
 import '../models/mercado_pago/order.dart';
-// Asumo que tienes un modelo Order, si no, puedes pasar los datos directamente.
-
 
 class MercadoPagoProvider extends GetConnect {
-  final String _mercadoPagoApiUrl = 'https://api.mercadopago.com/v1';
-  User userSession =User.fromJson(GetStorage().read('key') ?? {});
-  // URL de tu propio backend. Asegúrate de que apunte a tu servidor.
+  // URL base de la API de Mercado Pago
+  final String _mercadoPagoApiUrl = Enviroment.API_MERCADO_PAGO;
+  // URL de tu propio backend
   final String _myBackendApiUrl = Enviroment.API_URL;
-
+  // Credenciales de Mercado Pago (desde tu archivo de entorno)
   final String _accessToken = Enviroment.ACCESS_TOKEN;
   final String _publicKey = Enviroment.PUBLIC_KEY;
 
-  // ... (tu función createCardToken se queda igual) ...
+  /// Obtiene la información del medio de pago (Visa, Mastercard, etc.)
+  /// basado en el BIN de la tarjeta (los primeros 6 u 8 dígitos).
+  ///
+  /// @param bin Los primeros dígitos del número de la tarjeta.
+  /// @return Una lista de métodos de pago que coinciden con el BIN.
+  Future<List<MercadoPagoPaymentMethod>> getPaymentMethods(String bin) async {
+    // Construye la URL para el endpoint de 'payment_methods' de Mercado Pago.
+    final url = '$_mercadoPagoApiUrl/payment_methods?public_key=$_publicKey&bin=$bin';
+    
+    try {
+      Response response = await get(url);
 
-  /// Envía los datos del pago a tu backend para ser procesados.
-  Future<Response> createPayment({
+      // Si la solicitud fue exitosa (código 200)
+      if (response.statusCode == 200) {
+        // Verifica que la respuesta sea una lista y no esté vacía.
+        if (response.body is List && response.body.isNotEmpty) {
+          // Parsea la respuesta JSON a una lista de objetos MercadoPagoPaymentMethod.
+          return MercadoPagoPaymentMethod.fromJsonList(response.body);
+        }
+      } else {
+        // Si hay un error, lo imprime en la consola para depuración.
+        if (kDebugMode) {
+          print('Error al obtener métodos de pago: ${response.body}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Excepción al obtener métodos de pago: $e');
+      }
+    }
+    // Si algo falla, retorna una lista vacía.
+    return [];
+  }
+
+  /// Obtiene las opciones de cuotas y la información del banco emisor.
+  ///
+  /// @param bin El BIN de la tarjeta.
+  /// @param amount El monto total de la transacción.
+  /// @return Una lista con la información de las cuotas y el emisor.
+  Future<List<MercadoPagoPaymentMethodInstallments>> getInstallments(String bin, double amount) async {
+    // Construye la URL para el endpoint de 'installments' de Mercado Pago.
+    final url = '$_mercadoPagoApiUrl/payment_methods/installments?public_key=$_publicKey&bin=$bin&amount=$amount';
+
+    try {
+      Response response = await get(url);
+
+      if (response.statusCode == 200) {
+        if (response.body is List && response.body.isNotEmpty) {
+          // Parsea la respuesta JSON a una lista de objetos.
+          return MercadoPagoPaymentMethodInstallments.fromJsonList(response.body);
+        }
+      } else {
+        if (kDebugMode) {
+          print('Error al obtener cuotas: ${response.body}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Excepción al obtener cuotas: $e');
+      }
+    }
+    return [];
+  }
+
+  /// Crea un token seguro de un solo uso para la tarjeta.
+  /// Esto evita que los datos sensibles de la tarjeta viajen a tu backend.
+  Future<MercadoPagoCardToken?> createCardToken({
+    required String cardNumber,
+    required String expirationYear,
+    required int expirationMonth,
+    required String cardHolderName,
+    required String cvv,
+    required String identificationType,
+    required String identificationNumber,
+  }) async {
+    // Construye la URL para crear el token de tarjeta.
+    final url = '$_mercadoPagoApiUrl/card_tokens?public_key=$_publicKey';
+
+    final body = {
+      'card_number': cardNumber,
+      'expiration_year': expirationYear,
+      'expiration_month': expirationMonth,
+      'security_code': cvv,
+      'cardholder': {
+        'name': cardHolderName,
+        'identification': {
+          'type': identificationType,
+          'number': identificationNumber,
+        }
+      }
+    };
+
+    try {
+      Response response = await post(url, json.encode(body));
+
+      if (response.statusCode == 201) { // 201 = Created
+        // Si el token se crea correctamente, lo parsea y lo retorna.
+        return MercadoPagoCardToken.fromJson(response.body);
+      } else {
+        if (kDebugMode) {
+          print('Error al crear token de tarjeta: ${response.body}');
+        }
+        Get.snackbar('Error de validación', 'No se pudo validar la tarjeta. Revisa los datos e intenta de nuevo.');
+        return null;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Excepción al crear token de tarjeta: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Envía la información del pago (incluyendo el token) a tu propio backend
+  /// para que este complete la transacción con Mercado Pago.
+  Future<Response?> createPayment({
     required String token,
     required String paymentMethodId,
     required String paymentTypeId,
@@ -32,15 +139,12 @@ class MercadoPagoProvider extends GetConnect {
     required String issuerId,
     required String identificationType,
     required String identificationNumber,
-    // CORREGIDO: El monto de la transacción debe ser un número.
-    required double transactionAmount, 
-    // CORREGIDO: Las cuotas deben ser un número entero.
-    required int installments, 
+    required double transactionAmount,
+    required int installments,
     required Order order,
   }) async {
-    
-    // Este es el endpoint que crearás en tu backend (ver la sección de Python más abajo).
-    final String url = '$_myBackendApiUrl/pagos/create';
+    // La URL de tu backend que procesará el pago.
+    final String url = '$_myBackendApiUrl/pagos/create'; // Asegúrate que este endpoint exista en tu backend.
 
     final Map<String, dynamic> paymentBody = {
       'token': token,
@@ -51,32 +155,30 @@ class MercadoPagoProvider extends GetConnect {
       'transaction_amount': transactionAmount,
       'payer': {
         'email': emailCustomer,
-        'identification': {
-          'type': identificationType,
-          'number': identificationNumber,
-        }
+        'identification': {'type': identificationType, 'number': identificationNumber}
       },
-      // Puedes enviar información adicional de la orden si tu backend la necesita.
-      'order_details': order.toJson() 
+      'order_details': order.toJson(), // Detalles adicionales de la orden
+      // Puedes agregar más metadata aquí si tu backend lo requiere.
+      'description': 'Compra de paquete: ${order.id}',
     };
 
     try {
-      // Realizamos la petición POST a nuestro propio servidor.
-      // Si tu backend requiere autenticación (ej. un JWT), debes añadirlo aquí en los headers.
+      // Se hace la llamada POST a tu servidor con todos los datos del pago.
       Response response = await post(
         url,
         json.encode(paymentBody),
         headers: {
           'Content-Type': 'application/json',
-          // 'Authorization': 'Bearer TU_JWT_TOKEN' // Descomentar si usas autenticación
+          // Si tu backend requiere autenticación, agrégala aquí.
+          // 'Authorization': 'Bearer TU_JWT_TOKEN'
         },
       );
       return response;
-
     } catch (e) {
-      Get.snackbar('Error de Conexión', 'No se pudo conectar con el servidor: $e');
-      // Devolvemos una respuesta de error para que el controller pueda manejarla.
-      return Response(statusCode: 500, statusText: 'Error de conexión con el servidor.');
+      if (kDebugMode) {
+        print('Excepción al crear el pago en el backend: $e');
+      }
+      return null;
     }
   }
 }

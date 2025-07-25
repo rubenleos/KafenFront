@@ -1,32 +1,74 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_credit_card/flutter_credit_card.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:kafen/models/mercado_pago/mercado_pago_card_token.dart';
+import 'package:kafen/models/mercado_pago/mercado_pago_installment.dart';
+import 'package:kafen/models/mercado_pago/mercado_pago_payment_method.dart';
+import 'package:kafen/models/mercado_pago/mercado_pago_payment_method_installments.dart';
+import 'package:kafen/models/mercado_pago/order.dart';
+import 'package:kafen/models/paquetes_model.dart';
+import 'package:kafen/models/user.dart';
 import 'package:kafen/provider/mercado_pago_provider.dart';
-// Asumo que tienes un modelo para la orden, si no, puedes adaptarlo.
-
 
 class ClientPaymentController extends GetxController {
-  // --- ESTADO DEL FORMULARIO DE LA TARJETA ---
+  // --- ESTADO DEL FORMULARIO Y LA UI ---
+  // Esta clave ahora solo pertenece al CreditCardForm.
+  GlobalKey<FormState> keyForm = GlobalKey();
+  RxBool isLoading = false.obs;
+  Timer? _debounce;
+
+  // ... (el resto de las variables reactivas no cambian) ...
   RxString cardNumber = ''.obs;
   RxString expiryDate = ''.obs;
   RxString cardHolderName = ''.obs;
   RxString cvvCode = ''.obs;
   RxBool isCvvFocused = false.obs;
-  GlobalKey<FormState> keyForm = GlobalKey();
+  RxString paymentMethodId = ''.obs;
+  RxString issuerId = ''.obs;
+  Rx<MercadoPagoPaymentMethod?> paymentMethod = Rx(null);
+  RxList<MercadoPagoInstallment> payerCosts = <MercadoPagoInstallment>[].obs;
+  RxInt selectedInstallment = 1.obs;
 
-  // --- CONTROLADORES PARA DATOS DE IDENTIFICACIÓN ---
-  // Debes conectar estos controllers a TextFields en tu vista.
+
+  // --- CONTROLADORES DE TEXTO ---
   TextEditingController identificationTypeController = TextEditingController();
   TextEditingController identificationNumberController = TextEditingController();
 
-  // --- ESTADO DE LA OPERACIÓN ---
-  RxBool isLoading = false.obs;
-
-  // --- DEPENDENCIAS ---
+  // --- DATOS DE LA COMPRA Y PROVEEDOR ---
+  final Rx<PackageModel?> package = Rx<PackageModel?>(null);
   MercadoPagoProvider mercadoPagoProvider = MercadoPagoProvider();
 
-  /// Se ejecuta cuando el modelo de la tarjeta de crédito cambia en el formulario.
+  // ... (onInit, onClose, onCreditCardModelChange, etc. no cambian) ...
+  @override
+  void onInit() {
+    super.onInit();
+    if (Get.arguments is PackageModel) {
+      package.value = Get.arguments;
+    } else {
+      Get.snackbar('Error', 'No se ha seleccionado un paquete para el pago.');
+      Get.back();
+    }
+
+    ever(cardNumber, (String newCardNumber) {
+      if (_debounce?.isActive ?? false) _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 500), () {
+        if (newCardNumber.length >= 6) {
+          fetchCardInfo();
+        } else {
+          clearCardInfo();
+        }
+      });
+    });
+  }
+
+  @override
+  void onClose() {
+    _debounce?.cancel();
+    super.onClose();
+  }
+
   void onCreditCardModelChange(CreditCardModel creditCardModel) {
     cardNumber.value = creditCardModel.cardNumber;
     expiryDate.value = creditCardModel.expiryDate;
@@ -35,91 +77,114 @@ class ClientPaymentController extends GetxController {
     isCvvFocused.value = creditCardModel.isCvvFocused;
   }
 
-  /// Valida todos los campos del formulario de pago.
-  bool isValidForm() {
-    if (cardNumber.value.isEmpty) {
-      Get.snackbar('Formulario no válido', 'Ingresa el número de la tarjeta');
-      return false;
-    }
-    if (expiryDate.value.isEmpty) {
-      Get.snackbar('Formulario no válido', 'Ingresa la fecha de vencimiento');
-      return false;
-    }
-    if (cardHolderName.value.isEmpty) {
-      Get.snackbar('Formulario no válido', 'Ingresa el nombre del titular');
-      return false;
-    }
-    if (cvvCode.value.isEmpty) {
-      Get.snackbar('Formulario no válido', 'Ingresa el código CVV');
-      return false;
-    }
-    if (identificationTypeController.text.isEmpty) {
-      Get.snackbar('Formulario no válido', 'Ingresa tu tipo de documento');
-      return false;
-    }
-    if (identificationNumberController.text.isEmpty) {
-      Get.snackbar('Formulario no válido', 'Ingresa tu número de documento');
-      return false;
-    }
-    return true;
+  void clearCardInfo() {
+    paymentMethodId.value = '';
+    issuerId.value = '';
+    paymentMethod.value = null;
+    payerCosts.clear();
   }
 
-  /// Orquesta todo el proceso de pago.
-  void processPayment() async {
-    if (!isValidForm()) {
-      return; // Si el formulario no es válido, no continuamos.
+  Future<void> fetchCardInfo() async {
+    String bin = cardNumber.value.replaceAll(' ', '').substring(0, 6);
+    List<MercadoPagoPaymentMethod> paymentMethods = await mercadoPagoProvider.getPaymentMethods(bin);
+    if (paymentMethods.isNotEmpty) {
+      paymentMethod.value = paymentMethods[0];
+      paymentMethodId.value = paymentMethods[0].id ?? '';
+      if (package.value != null) {
+        double amount = double.tryParse(package.value!.precio) ?? 0.0;
+        await getInstallmentsInfo(bin, amount);
+      }
     }
+  }
 
-    isLoading.value = true; // Mostramos el indicador de carga
+  Future<void> getInstallmentsInfo(String bin, double amount) async {
+    List<MercadoPagoPaymentMethodInstallments> installmentsList = await mercadoPagoProvider.getInstallments(bin, amount);
+    if (installmentsList.isNotEmpty) {
+      issuerId.value = installmentsList[0].issuer?.id ?? '';
+      payerCosts.value = installmentsList[0].payerCosts ?? [];
+      if (payerCosts.isNotEmpty) {
+        selectedInstallment.value = payerCosts[0].installments ?? 1;
+      }
+    }
+  }
 
-    // 1. CREAR EL TOKEN DE LA TARJETA
-    MercadoPagoCardToken? cardToken = await mercadoPagoProvider.createCardToken(
-      cardNumber: cardNumber.value,
-      expirationYear: '20${expiryDate.value.split('/')[1]}',
-      expirationMonth: int.parse(expiryDate.value.split('/')[0]),
-      cardHolderName: cardHolderName.value,
-      cvv: cvvCode.value,
-      // La API de Mercado Pago requiere estos datos para la tokenización
-      identificationType: identificationTypeController.text,
-      identificationNumber: identificationNumberController.text,
-    );
 
+  /// Orquesta todo el proceso de pago final.
+  void processPayment() async {
+    // --- CORRECCIÓN: Lógica de validación actualizada ---
+    // 1. Valida el formulario de la tarjeta de crédito usando su clave.
+    bool isCardFormValid = keyForm.currentState?.validate() ?? false;
+
+    // 2. Valida manualmente los campos de identificación.
+    bool isIdentificationValid =
+        identificationTypeController.text.isNotEmpty &&
+        identificationNumberController.text.isNotEmpty;
+
+    if (!isCardFormValid || !isIdentificationValid) {
+      Get.snackbar('Campos Incompletos',
+          'Por favor, completa todos los datos de la tarjeta y de identificación.');
+      return;
+    }
+    
+    if (paymentMethodId.isEmpty || issuerId.isEmpty) {
+      Get.snackbar('Validando Tarjeta', 'Por favor, espera un momento mientras validamos los datos de tu tarjeta.');
+      return;
+    }
+    if (package.value == null) return;
+
+    isLoading.value = true;
+
+    MercadoPagoCardToken? cardToken = await _createCardToken();
     if (cardToken == null) {
-      // Si el token no se pudo crear, mostramos un error y detenemos el proceso.
-      Get.snackbar('Error con la tarjeta', 'No se pudo validar la tarjeta. Revisa los datos.');
       isLoading.value = false;
       return;
     }
 
-    // --- DATOS DE EJEMPLO PARA EL PAGO ---
-    // Estos datos deberían venir de tu lógica de negocio (carrito de compras, usuario logueado, etc.)
-[=ht[q4tp6ablspe[],''=4rgr=[]]]
-    
-    // 2. ENVIAR EL PAGO AL BACKEND
+    User user = User.fromJson(GetStorage().read('user') ?? {});
+    Order order = Order(id: package.value!.paqueteId.toString(), total: double.parse(package.value!.precio));
+
     Response? response = await mercadoPagoProvider.createPayment(
-      token: cardToken.id,
-      paymentMethodId: "visa", // Este dato puede venir de un endpoint de MP o ser fijo si solo aceptas una marca
-      paymentTypeId: 'credit_card',
-      issuerId: "310", // ID del banco emisor, también se puede obtener de un endpoint de MP
-      emailCustomer: userEmail,
+      token: cardToken.id!,
+      paymentMethodId: paymentMethodId.value,
+      issuerId: issuerId.value,
+      paymentTypeId: paymentMethod.value?.paymentTypeId ?? 'credit_card',
+      emailCustomer: user.correoElectronico,
       identificationType: identificationTypeController.text,
       identificationNumber: identificationNumberController.text,
-      transactionAmount: exampleOrder.total,
-      installments: 1, // Número de cuotas
-      order: exampleOrder,
+      transactionAmount: order.total,
+      installments: selectedInstallment.value,
+      order: order,
     );
 
-    isLoading.value = false; // Ocultamos el indicador de carga
+    isLoading.value = false;
 
-    // 3. MANEJAR LA RESPUESTA DEL BACKEND
-    if (response != null && response.statusCode == 201) { // 201 Created o 200 OK según tu backend
-      Get.snackbar('Pago Exitoso', 'Tu compra ha sido realizada con éxito.');
-      // Aquí puedes navegar a una pantalla de confirmación de orden.
-      // Get.toNamed('/order/confirmation');
+    if (response != null && (response.statusCode == 201 || response.statusCode == 200)) {
+      Get.snackbar('Pago Exitoso', 'Tu compra ha sido realizada con éxito.', backgroundColor: Colors.green, colorText: Colors.white);
+      Get.offAllNamed('/citas');
     } else {
-      // Si el backend devuelve un error
-      String errorMessage = response?.body['message'] ?? 'Ocurrió un error desconocido.';
-      Get.snackbar('Pago Rechazado', 'No se pudo procesar tu pago: $errorMessage');
+      String errorMessage = response?.body?['message'] ?? 'Ocurrió un error desconocido. Intenta de nuevo.';
+      Get.snackbar('Pago Rechazado', 'No se pudo procesar tu pago: $errorMessage', backgroundColor: Colors.red, colorText: Colors.white);
+    }
+  }
+
+  Future<MercadoPagoCardToken?> _createCardToken() async {
+    try {
+      String year = expiryDate.value.split('/')[1];
+      String expirationYear = '20$year';
+      int expirationMonth = int.parse(expiryDate.value.split('/')[0]);
+
+      return await mercadoPagoProvider.createCardToken(
+        cardNumber: cardNumber.value.replaceAll(' ', ''),
+        expirationYear: expirationYear,
+        expirationMonth: expirationMonth,
+        cardHolderName: cardHolderName.value,
+        cvv: cvvCode.value,
+        identificationType: identificationTypeController.text,
+        identificationNumber: identificationNumberController.text,
+      );
+    } catch (e) {
+      Get.snackbar('Error de Datos', 'Verifica que todos los campos de la tarjeta sean correctos.');
+      return null;
     }
   }
 }

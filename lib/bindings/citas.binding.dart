@@ -1,14 +1,13 @@
 // lib/modules/citas/bindings/citas_binding.dart
 import 'package:get/get.dart';
-import 'package:kafen/ui/controller/citas_controlador.dart';
-// Asegúrate que la ruta al controlador sea la correcta
+import 'package:kafen/ui/controller/client_payment_controller.dart';
 
-
-class CitasBinding extends Bindings {
+class ClientPaymentBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<CitasController>(
-      () => CitasController(),
-    );
+    // Usa lazyPut para crear el controlador de forma segura solo cuando
+    // se necesite por primera vez en la ruta.
+    // Esto asegura que solo exista una instancia.
+    Get.lazyPut<ClientPaymentController>(() => ClientPaymentController());
   }
 }
