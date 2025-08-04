@@ -1,54 +1,68 @@
+import 'dart:convert';
 import 'package:kafen/models/mercado_pago/mercado_pago_installment.dart';
 import 'package:kafen/models/mercado_pago/mercado_pago_issuer.dart';
 
+/// Representa la respuesta completa de la API de cuotas de Mercado Pago.
+/// Contiene la información del emisor y una lista de las cuotas disponibles (payer_costs).
+class MercadoPagoPaymentMethodInstallments {
+  MercadoPagoPaymentMethodInstallments({
+    required this.paymentMethodId,
+    required this.paymentTypeId,
+    required this.issuer,
+    required this.processingMode,
+    this.merchantAccountId,
+    required this.payerCosts,
+    this.agreements,
+  });
 
-class MercadoPagoPaymentMethodInstallments{
+  final String paymentMethodId;
+  final String paymentTypeId;
+  final MercadoPagoIssuer issuer;
+  final String processingMode;
+  final dynamic merchantAccountId;
+  // La lista de cuotas ahora usa el modelo corregido
+  final List<MercadoPagoInstallment> payerCosts;
+  final dynamic agreements;
 
-  String? paymentMethodId;
+  factory MercadoPagoPaymentMethodInstallments.fromJson(String str) =>
+      MercadoPagoPaymentMethodInstallments.fromMap(json.decode(str));
 
-  String? paymentTypeId;
+  String toJson() => json.encode(toMap());
 
-  MercadoPagoIssuer? issuer;
+  /// Construye el objeto desde un mapa (JSON) de forma segura.
+  factory MercadoPagoPaymentMethodInstallments.fromMap(Map<String, dynamic> json) =>
+      MercadoPagoPaymentMethodInstallments(
+        paymentMethodId: json["payment_method_id"],
+        paymentTypeId: json["payment_type_id"],
+        issuer: MercadoPagoIssuer.fromJson(json["issuer"]),
+        processingMode: json["processing_mode"],
+        merchantAccountId: json["merchant_account_id"],
+        // --- CORRECCIÓN CLAVE ---
+        // Se asegura de que la lista de cuotas (payer_costs) se procese correctamente
+        // llamando al método `fromMap` del modelo `MercadoPagoInstallment` que ya corregimos.
+        payerCosts: List<MercadoPagoInstallment>.from(
+            json["payer_costs"].map((x) => MercadoPagoInstallment.fromMap(x))),
+        agreements: json["agreements"],
+      );
+  
+  /// Convierte el objeto a un mapa.
+  Map<String, dynamic> toMap() => {
+        "payment_method_id": paymentMethodId,
+        "payment_type_id": paymentTypeId,
+        "issuer": issuer.toJson(),
+        "processing_mode": processingMode,
+        "merchant_account_id": merchantAccountId,
+        "payer_costs": List<dynamic>.from(payerCosts.map((x) => x.toMap())),
+        "agreements": agreements,
+      };
 
-  String? processingMode;
-
-  String? merchantAccountId;
-
-  List<MercadoPagoInstallment>? payerCosts = [];
-
-  String? aggreements;
-
-  MercadoPagoPaymentMethodInstallments();
-
+  /// Método estático para convertir una lista de JSON en una lista de este objeto.
+  /// Es el que usa tu provider.
   static List<MercadoPagoPaymentMethodInstallments> fromJsonList(List<dynamic> jsonList) {
     List<MercadoPagoPaymentMethodInstallments> toList = [];
-
-    jsonList.forEach((item) {
-      MercadoPagoPaymentMethodInstallments model = MercadoPagoPaymentMethodInstallments.fromJson(item);
-      toList.add(model);
-    });
-
+    for (var item in jsonList) {
+      toList.add(MercadoPagoPaymentMethodInstallments.fromMap(item));
+    }
     return toList;
   }
-
-  MercadoPagoPaymentMethodInstallments.fromJson( Map<String, dynamic> json ) {
-    paymentMethodId     = json['payment_method_id'];
-    paymentTypeId       = json['payment_type_id'];
-    issuer              = (json['issuer'] != null) ? MercadoPagoIssuer.fromJson(json['issuer']) : null;
-    processingMode      = json['processing_mode'];
-    merchantAccountId   = json['merchant_account_id'];
-    payerCosts          = (json['payer_costs'] != null) ? MercadoPagoInstallment.fromJsonList(json['payer_costs']) : null;
-    aggreements         = json['agreements'];
-  }
-
-  Map<String, dynamic> toJson() =>
-      {
-        'payment_method_id'    : paymentMethodId,
-        'payment_type_id'      : paymentTypeId,
-        'issuer'               : (issuer != null) ? issuer?.toJson() : null,
-        'processing_mode'      : processingMode,
-        'merchant_account_id'  : merchantAccountId,
-        'payer_costs'          : (payerCosts != null) ? payerCosts : null,
-        'agreements'           : aggreements,
-      };
 }

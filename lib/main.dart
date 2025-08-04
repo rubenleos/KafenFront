@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:kafen/bindings/citas.binding.dart';
+import 'package:kafen/bindings/client_payment_binding.dart';
 
 import 'package:kafen/provider/authprovider.dart';
 import 'package:kafen/ui/controller/regitration_controller.dart';
@@ -40,7 +41,7 @@ class MyApp extends StatelessWidget {
         GetPage(
           name: '/citas',
           page: () => MainLayout(child: const CitasView()),
-          binding: ClientPaymentBinding(),
+          binding: CitasBinding(),          
           transition: Transition.fadeIn,
           transitionDuration: const Duration(milliseconds: 350),
         ),
@@ -73,12 +74,14 @@ class MyApp extends StatelessWidget {
           page: () => MainLayout(child:ClientPaymentsView() ),
           transition: Transition.fadeIn,
           transitionDuration: const Duration(milliseconds: 350),
+          binding: ClientPaymentBinding()
         ),
         GetPage(
           name: '/nosotros',
           page: () => MainLayout(child:NosotrosView() ),
           transition: Transition.fadeIn,
           transitionDuration: const Duration(milliseconds: 350),
+
         ),
         GetPage(
           name: '/contacto',

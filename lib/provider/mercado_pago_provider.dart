@@ -6,6 +6,7 @@ import 'package:kafen/models/mercado_pago/mercado_pago_card_token.dart';
 import 'package:kafen/models/mercado_pago/mercado_pago_payment_method.dart';
 import 'package:kafen/models/mercado_pago/mercado_pago_payment_method_installments.dart';
 import '../models/mercado_pago/order.dart';
+import 'package:kafen/models/user.dart';
 
 class MercadoPagoProvider extends GetConnect {
   // URL base de la API de Mercado Pago
@@ -29,7 +30,9 @@ class MercadoPagoProvider extends GetConnect {
       Response response = await get(url);
 
       // Si la solicitud fue exitosa (código 200)
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200) 
+      {
+        
         // Verifica que la respuesta sea una lista y no esté vacía.
         if (response.body is List && response.body.isNotEmpty) {
           // Parsea la respuesta JSON a una lista de objetos MercadoPagoPaymentMethod.
@@ -51,6 +54,9 @@ class MercadoPagoProvider extends GetConnect {
   }
 
   /// Obtiene las opciones de cuotas y la información del banco emisor.
+
+
+
   ///
   /// @param bin El BIN de la tarjeta.
   /// @param amount El monto total de la transacción.
@@ -61,6 +67,16 @@ class MercadoPagoProvider extends GetConnect {
 
     try {
       Response response = await get(url);
+
+       if (kDebugMode) {
+      print('----------- RESPUESTA DE MERCADO PAGO (CUOTAS - CORRECTO) -----------');
+      // Usamos un decodificador para que se vea bonito en la consola
+      var jsonResponse = json.decode(response.bodyString ?? '');
+      JsonEncoder encoder = const JsonEncoder.withIndent('  ');
+      String prettyprint = encoder.convert(jsonResponse);
+      print(prettyprint);
+      print('--------------------------------------------------------------------');
+    }
 
       if (response.statusCode == 200) {
         if (response.body is List && response.body.isNotEmpty) {
@@ -131,52 +147,50 @@ class MercadoPagoProvider extends GetConnect {
 
   /// Envía la información del pago (incluyendo el token) a tu propio backend
   /// para que este complete la transacción con Mercado Pago.
-  Future<Response?> createPayment({
+ Future<Response?> createPayment({
     required String token,
     required String paymentMethodId,
-    required String paymentTypeId,
-    required String emailCustomer,
     required String issuerId,
-    required String identificationType,
-    required String identificationNumber,
     required double transactionAmount,
     required int installments,
-    required Order order,
+    required String description,
+    required User user,
+    int? citaId, // El ID de la cita es opcional
   }) async {
-    // La URL de tu backend que procesará el pago.
-    final String url = '$_myBackendApiUrl/pagos/create'; // Asegúrate que este endpoint exista en tu backend.
+    // CORRECCIÓN: Apuntar al endpoint correcto en tu backend.
+    final String url = '$_myBackendApiUrl/pagos/process'; 
 
+    // CORRECCIÓN: Construir el cuerpo del pago para que coincida con el schema `PaymentRequest` de FastAPI.
     final Map<String, dynamic> paymentBody = {
       'token': token,
       'payment_method_id': paymentMethodId,
-      'payment_type_id': paymentTypeId,
       'issuer_id': issuerId,
       'installments': installments,
       'transaction_amount': transactionAmount,
+      'description': description,
       'payer': {
-        'email': emailCustomer,
-        'identification': {'type': identificationType, 'number': identificationNumber}
+        'email': user.correoElectronico,
       },
-      'order_details': order.toJson(), // Detalles adicionales de la orden
-      // Puedes agregar más metadata aquí si tu backend lo requiere.
-      'description': 'Compra de paquete: ${order.id}',
+      // IDs de tu sistema
+      'usuario_id': user.usuarioId,
+      'cita_id': citaId, // Será `null` si no se proporciona
     };
 
     try {
-      // Se hace la llamada POST a tu servidor con todos los datos del pago.
+      // Se hace la llamada POST a tu servidor.
       Response response = await post(
         url,
         json.encode(paymentBody),
         headers: {
           'Content-Type': 'application/json',
-          // Si tu backend requiere autenticación, agrégala aquí.
+          // Aquí puedes agregar tokens de autenticación para tu backend si los usas.
           // 'Authorization': 'Bearer TU_JWT_TOKEN'
         },
       );
       return response;
     } catch (e) {
       if (kDebugMode) {
-        print('Excepción al crear el pago en el backend: $e');
+        print('Excepción al conectar con el backend: $e');
       }
       return null;
     }

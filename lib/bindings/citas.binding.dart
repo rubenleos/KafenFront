@@ -1,13 +1,12 @@
-// lib/modules/citas/bindings/citas_binding.dart
 import 'package:get/get.dart';
-import 'package:kafen/ui/controller/client_payment_controller.dart';
+import 'package:kafen/ui/controller/citas_controlador.dart';
 
-class ClientPaymentBinding extends Bindings {
+// --- CORRECCIÓN APLICADA ---
+// Se ha renombrado la clase a "CitasBinding" para que sea única
+// y coincida con el propósito del archivo. Esto elimina el error de ambigüedad.
+class CitasBinding extends Bindings {
   @override
   void dependencies() {
-    // Usa lazyPut para crear el controlador de forma segura solo cuando
-    // se necesite por primera vez en la ruta.
-    // Esto asegura que solo exista una instancia.
-    Get.lazyPut<ClientPaymentController>(() => ClientPaymentController());
+    Get.lazyPut<CitasController>(() => CitasController());
   }
 }
